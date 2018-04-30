@@ -1,0 +1,53 @@
+   
+admin:
+  access_log_path: /dev/null
+  address:
+    socket_address:
+      address: 127.0.0.1
+      port_value: 9000
+
+node:
+  cluster: mycluster
+  id: test-id
+
+static_resources:
+  listeners:
+  - name: listener_0
+
+    address:
+      socket_address: { address: 0.0.0.0, port_value: 10000 }
+
+    filter_chains:
+    - filters:
+      - name: envoy.http_connection_manager
+        config:
+          stat_prefix: ingress_http
+          codec_type: AUTO
+          route_config:
+            name: local_route
+            virtual_hosts:
+            - name: local_service
+              domains: ["*"]
+              routes:
+              - match: { prefix: "/" }
+                route: { cluster: service_backend }
+          http_filters:
+          - name: envoy.router  
+
+  clusters:
+  - name: service_backend
+    type: EDS  
+    connect_timeout: 0.25s
+    eds_cluster_config:
+      service_name: myservice
+      eds_config:
+        api_config_source:
+          #api_type: REST_LEGACY # GET /v1/registration/myservice
+          #api_type: REST # POST /v2/discovery:endpoints
+          api_type: REST
+          cluster_names: [eds_cluster]
+          refresh_delay: 5s
+  - name: eds_cluster
+    type: STATIC
+    connect_timeout: 0.25s
+    hosts: [{ socket_address: { address: 127.0.0.1, port_value: 8080 }}]
