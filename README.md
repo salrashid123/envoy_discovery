@@ -83,7 +83,7 @@ Now in a new window, start the upstream service on a given the default port for 
 ```bash
 cd upstream/
 
-virtualenv env
+virtualenv env --python=python2.7
 source env/bin/activate
 pip install -r requirements.txt
 
@@ -100,9 +100,12 @@ Now start SDS without any bootstrapped config:
 ```bash
 cd eds_server/
 
-virtualenv env
+virtualenv env --python=python2.7
 source env/bin/activate
 pip install -r requirements.txt
+
+# ImportError: No module named enum
+# pip install enum34
 
 python main.py
 ```
