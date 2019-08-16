@@ -68,6 +68,23 @@ Bootstraping SDS within Envoy is relatively simple:
 
 Note the ```api_type:``` is set to ```v2```  ```REST``` endpoint.  If you want to swtich to ```v1``` simply use ```api_type:  REST_LEGACY```
 
+You can basically 'copy out an envoy binary from docker if you're using a linux flavor
+```
+$ mkdir /tmp/envoybin
+$ docker run -v /tmp/envoybin/:/tmp/envoybin -ti envoyproxy/envoy /bin/bash
+```
+
+copy the envoy binary out and exit container
+```
+root@45e96404eb8a:/# cp /usr/local/bin/envoy /tmp/envoybin/
+root@45e96404eb8a:/# exit
+exit
+```
+find envoy outside now
+```
+$ ls /tmp/envoybin/envoy 
+/tmp/envoybin/envoy
+```
 
 So start envoy with debug enabled:
 
