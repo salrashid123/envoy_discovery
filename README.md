@@ -89,7 +89,7 @@ $ ls /tmp/envoybin/envoy
 So start envoy with debug enabled:
 
 ```bash
-envoy -c envoy_config.yaml --v2-config-only -l debug
+envoy -c envoy_config.yaml -l debug
 ```
 
 At this point, envoy attempts to connect to the upstream EDS cluster at ```127.0.0.1:8080``` but since your SDS isn't running yet, nothing additional config takes place.
@@ -200,7 +200,7 @@ curl -X POST --header 'Content-Type: application/json' --header 'Accept: applica
   "hosts": [
     {
       "ip_address": "127.0.0.1",
-      "port": 18080,
+      "port": 8081,
       "tags": {
         "az": "us-central1-a",
         "canary": false,
