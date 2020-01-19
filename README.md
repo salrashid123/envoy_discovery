@@ -159,7 +159,7 @@ Basically, this shows no updates were recieved from the endpoint
 You can verify that envoy doesn't know anything about this endpoint by attempting to connect through to it:
 
 ```bash
-curl -v https://localhost:10000/
+curl -v http://localhost:10000/
 $ curl -v  http://localhost:10000/
 ... 
 < HTTP/1.1 503 Service Unavailable
@@ -184,6 +184,25 @@ http://localhost:8080/
 ```
 
 ![images/api_console.png](images/api_console.png)
+
+```bash
+
+curl -X GET "http://localhost:8080/edsservice/myservice" -H "accept: application/json"
+
+{
+  "hosts": [
+    {
+      "ip_address": "127.0.0.1",
+      "port": 8081,
+      "tags": {
+        "az": "us-central1-a",
+        "canary": false,
+        "load_balancing_weight": 50
+      }
+    }
+  ]
+}
+```
 
 
 From there, you can register a service endpoint by selecting ```POST``` and the default payload.
@@ -280,25 +299,11 @@ $ python server.py -p 8083
 ```
 and then using the API to add hosts to the SDS server (use the ```PUT``` endpoint to do that)
 
-
-
-### Healthcheck
-
-A note about healthchecks:  I noticed that once i added in healthchecks to the endpoint, even if i deleted the upstream service
-from the SDS server (i.,e removed it from ```hosts:``` list), the healthchecks continued and we can still connect to it via envoy.
-Since i'm new to envoy config, i suspect this is working as intended..
-
-```
-    health_checks: 
-      - timeout: 1s
-        interval: 5s
-        unhealthy_threshold: 1
-        healthy_threshold: 1
-        http_health_check: 
-          path: /healthz
+```bash
+curl -X PUT "http://localhost:8080/edsservice/myservice" -H "accept: application/json" -H "Content-Type: application/json" -d "{ \"hosts\": [ { \"ip_address\": \"127.0.0.1\", \"port\": 8081, \"tags\": { \"az\": \"us-central1-a\", \"canary\": false, \"load_balancing_weight\": 50 } }, { \"ip_address\": \"127.0.0.1\", \"port\": 8082, \"tags\": { \"az\": \"us-central1-a\", \"canary\": false, \"load_balancing_weight\": 50 } } ]}"
 ```
 
-## Concolusion
+## Conclusion
 
 I wrote this up just in an effort to play around with ```envoy``` i'm pretty much new to this so i likely have numerous 
 misunderstanding on what i just did here...if you see something amiss, please do let me know.
