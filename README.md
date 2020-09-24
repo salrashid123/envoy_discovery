@@ -68,22 +68,9 @@ Bootstraping SDS within Envoy is relatively simple:
 
 Note the ```api_type:``` is set to ```v2```  ```REST``` endpoint.  If you want to swtich to ```v1``` simply use ```api_type:  REST_LEGACY```
 
-You can basically 'copy out an envoy binary from docker if you're using a linux flavor
-```
-$ mkdir /tmp/envoybin
-$ docker run -v /tmp/envoybin/:/tmp/envoybin -ti envoyproxy/envoy /bin/bash
-```
-
-copy the envoy binary out and exit container
-```
-root@45e96404eb8a:/# cp /usr/local/bin/envoy /tmp/envoybin/
-root@45e96404eb8a:/# exit
-exit
-```
-find envoy outside now
-```
-$ ls /tmp/envoybin/envoy 
-/tmp/envoybin/envoy
+Get Envoy binary
+```bash
+docker cp `docker create envoyproxy/envoy:v1.15.0`:/usr/local/bin/envoy .
 ```
 
 So start envoy with debug enabled:
@@ -101,7 +88,7 @@ Now in a new window, start the upstream service on a given the default port for 
 ```bash
 cd upstream/
 
-virtualenv env --python=python2.7
+virtualenv env --python=/usr/bin/python3.7
 source env/bin/activate
 pip install -r requirements.txt
 
@@ -118,7 +105,7 @@ Now start SDS without any bootstrapped config:
 ```bash
 cd eds_server/
 
-virtualenv env --python=python2.7
+virtualenv env --python=/usr/bin/python3.7
 source env/bin/activate
 pip install -r requirements.txt
 
@@ -185,29 +172,8 @@ http://localhost:8080/
 
 ![images/api_console.png](images/api_console.png)
 
-```bash
 
-curl -X GET "http://localhost:8080/edsservice/myservice" -H "accept: application/json"
-
-{
-  "hosts": [
-    {
-      "ip_address": "127.0.0.1",
-      "port": 8081,
-      "tags": {
-        "az": "us-central1-a",
-        "canary": false,
-        "load_balancing_weight": 50
-      }
-    }
-  ]
-}
-```
-
-
-From there, you can register a service endpoint by selecting ```POST``` and the default payload.
-
-
+From there, you can register a service endpoint by selecting ```POST``` and the default payload:
 
 ### Create Endpoint
 
@@ -242,6 +208,27 @@ What this will do is set some endpoints for ```myservice```. Now, envoy will que
 [2018-04-29 23:18:02.360][159226][debug][pool] source/common/http/http1/conn_pool.cc:200] [C7] response complete
 [2018-04-29 23:18:02.360][159226][debug][pool] source/common/http/http1/conn_pool.cc:220] [C7] moving to ready
 ```
+
+Verify the endpoint is registered:
+
+```bash
+curl -X GET "http://localhost:8080/edsservice/myservice" -H "accept: application/json"
+
+{
+  "hosts": [
+    {
+      "ip_address": "127.0.0.1",
+      "port": 8081,
+      "tags": {
+        "az": "us-central1-a",
+        "canary": false,
+        "load_balancing_weight": 50
+      }
+    }
+  ]
+}
+```
+
 
 ### Check client connectivity via envoy
 

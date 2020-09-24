@@ -10,14 +10,14 @@ uid = uuid.uuid4()
 
 @app.route('/')
 def index():
-    print request.headers
-    print "--------------"
+    print(request.headers)
+    print("--------------")
     return str(uid)
 
 @app.route('/healthz')
 def health():
-    print request.headers
-    print "/healthz"
+    print(request.headers)
+    print("/healthz")
     return "ok"   
 
 import sys, getopt
@@ -27,7 +27,7 @@ def main(argv):
    try:
       opts, args = getopt.getopt(argv,"p:",["port="])
    except getopt.GetoptError:
-      print 'server.py -p <portnumber>'
+      print('server.py -p <portnumber>')
       sys.exit(2)
    for opt, arg in opts:
       if opt in ("-p", "--port"):
