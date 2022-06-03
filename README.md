@@ -70,6 +70,8 @@ static_resources:
                 route: { cluster: service_backend }
           http_filters:
           - name: envoy.filters.http.router
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router         
   clusters:
   - name: service_backend
     type: EDS  
