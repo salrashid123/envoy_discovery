@@ -1,20 +1,11 @@
 # Envoy EDS "hello world"
-A simple app demonstrating a small part of [Envoy's Endpoint Discovery Service](https://www.envoyproxy.io/docs/envoy/latest/api-v2/api/v2/eds.proto#envoy-api-file-envoy-api-v2-eds-proto).  THis is a sample walkthough of a trivial 
-envoy config that sets up:
 
-* Envoy with SDS bootstrap (both envoy ```v1``` and ```v2``` APIs)
-* SDS Server to provide service discovery info for upstream back to Envoy
-* N upstream instances envoy will proxy back.
+A simple app demonstrating a small part of [Envoy's Endpoint Discovery Service](https://www.envoyproxy.io/docs/envoy/latest/api-v2/api/v2/eds.proto#envoy-api-file-envoy-api-v2-eds-proto). 
 
-
-Some of the configurations are hardcoded in the ```envoy_config.yaml``` file just as a demonstration.  Specifically, the service, cluster and bootstrap endpoint
+Some of the configurations are hardcoded in the `envoy_config.yaml` file just as a demonstration.  Specifically, the service, cluster and bootstrap endpoint
 to get discovery information.
 
-> *NOTE*  this repo uses `envoy 1.17`
 
-```
-docker cp `docker create envoyproxy/envoy-dev:latest`:/usr/local/bin/envoy .
-```
 ## References
  - [Endpoint Discovery Service](https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/endpoint/endpoint)
  - [Endpoing Overview](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/service_discovery#arch-overview-service-discovery-types-sds)
@@ -24,9 +15,9 @@ docker cp `docker create envoyproxy/envoy-dev:latest`:/usr/local/bin/envoy .
 
 ### Prerequsites
 
-- [envoy binary v1.17+ ](https://envoyproxy.io)
+- [envoy binary ](https://envoyproxy.io)
 - python (and virtualenv)
-
+- golang
 
 Overall there are three components:
 
@@ -39,91 +30,29 @@ Overall there are three components:
 
 ---
 
-## Start Envoy with SDS
+### Start EDS Server
 
-Bootstraping SDS within Envoy is relatively simple:
-
-```yaml
-node:
-  cluster: mycluster
-  id: test-id
-
-static_resources:
-  listeners:
-  - name: listener_0
-    address:
-      socket_address: { address: 0.0.0.0, port_value: 10000 }
-    filter_chains:
-    - filters:
-      - name: envoy.filters.network.http_connection_manager
-        typed_config:  
-          "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager  
-          stat_prefix: ingress_http
-          codec_type: AUTO
-          route_config:
-            name: local_route
-            virtual_hosts:
-            - name: local_service
-              domains: ["*"]
-              routes:
-              - match: { prefix: "/" }
-                route: { cluster: service_backend }
-          http_filters:
-          - name: envoy.filters.http.router
-            typed_config:
-              "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router         
-  clusters:
-  - name: service_backend
-    type: EDS  
-    connect_timeout: 0.25s
-    health_checks: 
-      - timeout: 1s
-        interval: 5s
-        unhealthy_threshold: 1
-        healthy_threshold: 1
-        http_health_check: 
-          path: /healthz    
-    eds_cluster_config:
-      service_name: myservice
-      eds_config:
-        resource_api_version: V3
-        api_config_source:
-          api_type: GRPC
-          transport_api_version: V3
-          grpc_services:
-          - envoy_grpc:
-              cluster_name: eds_cluster
-          refresh_delay: 5s
-  - name: eds_cluster
-    type: STATIC
-    connect_timeout: 0.25s
-    http2_protocol_options: {}
-    load_assignment:
-      cluster_name: eds_cluster
-      endpoints:
-      - lb_endpoints:
-        - endpoint:
-            address:
-              socket_address:
-                address: 127.0.0.1
-                port_value: 8080
+```bash
+cd eds_server
+go run grpc_server.go
 ```
+
+## Start Envoy with SDS
 
 
 Get Envoy binary
+
 ```bash
 docker cp `docker create envoyproxy/envoy-dev:latest`:/usr/local/bin/envoy .
-
-envoy  version: 483dd3007f15e47deed0a29d945ff776abb37815/1.17.0-dev/Clean/RELEASE/BoringSSL
 ```
 
 So start envoy with debug enabled:
 
 ```bash
-envoy -c envoy_config.yaml -l debug
+./envoy -c envoy_config.yaml -l debug
 ```
 
-At this point, envoy attempts to connect to the upstream EDS gRPC cluster at ```127.0.0.1:8080``` but since your EDS isn't running yet, nothing additional config takes place.
+At this point, envoy attempts to connect to the upstream EDS gRPC cluster at `127.0.0.1:8080` but since your EDS isn't running yet, nothing additional config takes place.
 
 
 ```bash
@@ -144,14 +73,7 @@ At this point, envoy attempts to connect to the upstream EDS gRPC cluster at ```
 
 no healthy upstream
 ```
-## Start EDS
 
-Now startup the EDS gRPC server
-
-```bash
-cd eds_server
-go run grpc_server.go
-```
 
 As mentioned, this is the gRPC server that envoy will connect to.  Since the EDS server doesn't 'know' about any other webservers, its list of endpoints is blank
 
@@ -177,12 +99,6 @@ INFO[0022] OnStreamRequest ResourceNames [myservice]
 
 however, the cache doesn't contain any endpoints so envoy can't proxy to any webserver (clearly since no upstream server is even running!)
 
-```
-$ curl -v  http://localhost:10000/
-
-no healthy upstream
-```
-
 
 ## Start Upstream services
 
@@ -195,7 +111,7 @@ virtualenv env --python=/usr/bin/python3.7
 source env/bin/activate
 pip install -r requirements.txt
 
-$ python server.py -p 8081
+$ python3 server.py -p 8081
 ```
 
 On startup, the webserver will make a rest API call back to the EDS server over HTTP just to let it know its alive and the host/port it listens on.
@@ -248,23 +164,20 @@ $ curl -v  http://localhost:10000/
 40b9bc6f-77b8-49b7-b939-1871507b0fcc
 ```
 
-(note the ```server: envoy``` part in the header)
+(note the `server: envoy` part in the header)
 
-Note, if you can also directly remove an upstream host:port from EDS by invoking the deregister : `curl http://localhost:5000/edsservice/deregister?endpoint=127.0.0.1:8081`
+Note, if you can also directly remove an upstream host:port from EDS by invoking the deregister :
 
-I've enabled the cluster to use the following flag:
+ `curl http://localhost:5000/edsservice/deregister?endpoint=127.0.0.1:8081`
 
-- `ignore_health_on_host_removal`
-```
-(bool) If set to true, Envoy will ignore the health value of a host when processing its removal from service discovery. This means that if active health checking is used, Envoy will not wait for the endpoint to go unhealthy before removing it.
-```
 
 ## Rinse and repeat
 
 Ok, you can continue to play with the endpoints by adding and adding or stopping new upstream services on different ports:
 
 eg:
-```
+
+```bash
 $ python server.py -p 8082
 $ python server.py -p 8083
 ```
@@ -272,6 +185,6 @@ $ python server.py -p 8083
 each successive calls to envoy should show the various endpoints
 ## Conclusion
 
-I wrote this up just in an effort to play around with ```envoy``` i'm pretty much new to this so i likely have numerous 
+I wrote this up just in an effort to play around with `envoy` i'm pretty much new to this so i likely have numerous 
 misunderstanding on what i just did here...if you see something amiss, please do let me know.
 

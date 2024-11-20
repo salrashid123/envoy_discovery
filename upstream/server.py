@@ -4,7 +4,9 @@ from flask import Flask, request, abort
 import uuid
 import sys, os, getopt
 import urllib.request
+import urllib.response
 import urllib.parse
+import flask 
 
 app = Flask(__name__)
 
@@ -14,13 +16,18 @@ uid = uuid.uuid4()
 def index():
     print(request.headers)
     print("--------------")
-    return str(uid)
+    resp = flask.Response(str(uid))
+   #  resp.headers['x-envoy-immediate-health-check-fail'] = '1' 
+    return resp 
+
 
 @app.route('/healthz')
 def health():
     print(request.headers)
     print("/healthz")
-    return "ok"   
+    resp = flask.Response("ok")
+   #  resp.headers['x-envoy-immediate-health-check-fail'] = '1' 
+    return resp 
 
 import sys, getopt
 

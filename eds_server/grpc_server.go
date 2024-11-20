@@ -13,9 +13,10 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	cachev3 "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
-
+	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 
@@ -66,7 +67,7 @@ func (cb *Callbacks) OnStreamOpen(_ context.Context, id int64, typ string) error
 	log.Infof("OnStreamOpen %d open for %s", id, typ)
 	return nil
 }
-func (cb *Callbacks) OnStreamClosed(id int64) {
+func (cb *Callbacks) OnStreamClosed(id int64, n *corev3.Node) {
 	log.Infof("OnStreamClosed %d closed", id)
 }
 func (cb *Callbacks) OnStreamRequest(id int64, r *discoverygrpc.DiscoveryRequest) error {
@@ -84,8 +85,8 @@ func (cb *Callbacks) OnStreamRequest(id int64, r *discoverygrpc.DiscoveryRequest
 	}
 	return nil
 }
-func (cb *Callbacks) OnStreamResponse(int64, *discoverygrpc.DiscoveryRequest, *discoverygrpc.DiscoveryResponse) {
-	log.Infof("OnStreamResponse...")
+func (cb *Callbacks) OnStreamResponse(ctx context.Context, id int64, req *discoverygrpc.DiscoveryRequest, resp *discoverygrpc.DiscoveryResponse) {
+	log.Infof("OnStreamResponse... %d   Request [%v],  Response[%v]", id, req.TypeUrl, resp.TypeUrl)
 	cb.Report()
 }
 func (cb *Callbacks) OnFetchRequest(ctx context.Context, req *discoverygrpc.DiscoveryRequest) error {
@@ -101,6 +102,24 @@ func (cb *Callbacks) OnFetchRequest(ctx context.Context, req *discoverygrpc.Disc
 }
 func (cb *Callbacks) OnFetchResponse(*discoverygrpc.DiscoveryRequest, *discoverygrpc.DiscoveryResponse) {
 	log.Infof("OnFetchResponse...")
+}
+
+func (cb *Callbacks) OnDeltaStreamClosed(id int64, n *corev3.Node) {
+	log.Infof("OnDeltaStreamClosed... %v", id)
+}
+
+func (cb *Callbacks) OnDeltaStreamOpen(ctx context.Context, id int64, typ string) error {
+	log.Infof("OnDeltaStreamOpen... %v  of type %s", id, typ)
+	return nil
+}
+
+func (c *Callbacks) OnStreamDeltaRequest(i int64, request *discoverygrpc.DeltaDiscoveryRequest) error {
+	log.Infof("OnStreamDeltaRequest... %v  of type %s", i, request)
+	return nil
+}
+
+func (c *Callbacks) OnStreamDeltaResponse(i int64, request *discoverygrpc.DeltaDiscoveryRequest, response *discoverygrpc.DeltaDiscoveryResponse) {
+	log.Infof("OnStreamDeltaResponse... %v  of type %s", i, request)
 }
 
 type Callbacks struct {
@@ -234,6 +253,22 @@ func main() {
 				{
 					HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 						Endpoint: &endpoint.Endpoint{
+
+							// HealthCheckConfig: &endpoint.Endpoint_HealthCheckConfig{
+							// 	PortValue: uint32(uport),
+							// 	Address: &corev3.Address{
+							// 		Address: &corev3.Address_SocketAddress{
+							// 			SocketAddress: &core.SocketAddress{
+							// 				Protocol: core.SocketAddress_TCP,
+							// 				Address:  h,
+							// 				PortSpecifier: &core.SocketAddress_PortValue{
+							// 					PortValue: uint32(uport),
+							// 				},
+							// 			},
+							// 		},
+							// 	},
+							// },
+
 							Address: &core.Address{
 								Address: &core.Address_SocketAddress{
 									SocketAddress: &core.SocketAddress{
@@ -265,16 +300,21 @@ func main() {
 		atomic.AddInt32(&version, 1)
 		log.Infof(">>>>>>>>>>>>>>>>>>> creating snapshot Version " + fmt.Sprint(version))
 
-		snap := cachev3.NewSnapshot(fmt.Sprint(version), c, nil, nil, nil, nil, nil)
-		err := cache.SetSnapshot(nodeId, snap)
+		resources := make(map[string][]types.Resource, 1)
+
+		resources[resource.EndpointType] = c
+
+		snap, err := cachev3.NewSnapshot(fmt.Sprint(version), resources)
 		if err != nil {
 			log.Fatalf("Could not set snapshot %v", err)
 		}
 
-		//reader := bufio.NewReader(os.Stdin)
-		//_, _ = reader.ReadString('\n')
+		err = cache.SetSnapshot(ctx, nodeId, snap)
+		if err != nil {
+			log.Fatalf("Could not set snapshot %v", err)
+		}
 
-		time.Sleep(60 * time.Second)
+		time.Sleep(10 * time.Second)
 
 	}
 
